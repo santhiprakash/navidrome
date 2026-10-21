@@ -21,6 +21,7 @@ const initialState = {
   clear: false,
   volume: config.defaultUIVolume / 100,
   savedPlayIndex: 0,
+  mode: 'order',
 }
 
 const pad = (value) => {
@@ -98,7 +99,13 @@ const mapToAudioLists = (item) => {
   }
 }
 
-const reduceClearQueue = () => ({ ...initialState, clear: true })
+// mode is a user preference (repeat/shuffle), so it survives a queue reset;
+// everything else (queue contents, current track, play position) is cleared.
+const reduceClearQueue = (state) => ({
+  ...initialState,
+  mode: state.mode ?? initialState.mode,
+  clear: true,
+})
 
 const reducePlayTracks = (state, { data, id }) => {
   let playIndex = 0
@@ -212,7 +219,7 @@ export const playerReducer = (previousState = initialState, payload) => {
   const { type } = payload
   switch (type) {
     case PLAYER_CLEAR_QUEUE:
-      return reduceClearQueue()
+      return reduceClearQueue(previousState)
     case PLAYER_PLAY_TRACKS:
       return reducePlayTracks(previousState, payload)
     case PLAYER_SET_TRACK:

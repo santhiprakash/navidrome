@@ -4,6 +4,8 @@ import {
   PLAYER_SYNC_QUEUE,
   PLAYER_CURRENT,
   PLAYER_REFRESH_QUEUE,
+  PLAYER_CLEAR_QUEUE,
+  PLAYER_SET_MODE,
 } from '../actions'
 
 describe('playerReducer', () => {
@@ -222,6 +224,49 @@ describe('playerReducer', () => {
       const action = { type: PLAYER_REFRESH_QUEUE, data: {} }
       const result = playerReducer(state, action)
       expect(result.playIndex).toBe(0)
+    })
+  })
+
+  describe('play mode survives queue reset (issue #6361)', () => {
+    // The queue is cleared when the player is destroyed (closing the player,
+    // logout, login). Play mode is a user preference and must survive, the
+    // same way volume does.
+    it('CLEAR_QUEUE preserves mode set by SET_MODE', () => {
+      let state = playerReducer(undefined, { type: '@@init' })
+      state = playerReducer(state, {
+        type: PLAYER_SET_MODE,
+        data: { mode: 'orderLoop' },
+      })
+      const result = playerReducer(state, { type: PLAYER_CLEAR_QUEUE })
+      expect(result.mode).toBe('orderLoop')
+    })
+
+    it('CLEAR_QUEUE still resets queue, current, and savedPlayIndex', () => {
+      const state = {
+        queue: [{ trackId: 's1', uuid: 'aaa', name: 'Song 1' }],
+        current: { uuid: 'aaa', name: 'Song 1' },
+        savedPlayIndex: 3,
+        playIndex: 3,
+        clear: false,
+        volume: 0.5,
+        mode: 'shufflePlay',
+      }
+      const result = playerReducer(state, { type: PLAYER_CLEAR_QUEUE })
+      expect(result.queue).toEqual([])
+      expect(result.current).toEqual({})
+      expect(result.savedPlayIndex).toBe(0)
+      expect(result.playIndex).toBeUndefined()
+      expect(result.clear).toBe(true)
+      expect(result.mode).toBe('shufflePlay')
+    })
+
+    it('CLEAR_QUEUE falls back to the default mode when none was set', () => {
+      // State rehydrated from a persisted blob written before mode existed
+      const result = playerReducer(
+        { queue: [], current: {}, volume: 1, savedPlayIndex: 0 },
+        { type: PLAYER_CLEAR_QUEUE },
+      )
+      expect(result.mode).toBe('order')
     })
   })
 })
